@@ -48,6 +48,7 @@ Item {
   property int selectedIndex: 0
   // Window awaiting activation across a workspace switch; see focusWindow().
   property var pendingActivation: null
+  property int pendingWorkspaceId: -1
   readonly property var workspace: Hyprland.focusedWorkspace
   // The monitor that shows the thumbnails and takes keyboard focus: the one
   // Hyprland reports as focused, matched to a Quickshell screen by name.
@@ -122,6 +123,7 @@ Item {
     if (index < 0 || index >= count) return
     var target = windows[index]
     pendingActivation = target
+    pendingWorkspaceId = target.workspace ? target.workspace.id : -1
     dismiss()
     if (target.workspace && (!Hyprland.focusedWorkspace
         || target.workspace.id !== Hyprland.focusedWorkspace.id)) {
@@ -131,8 +133,9 @@ Item {
         Hyprland.dispatch("hl.dsp.focus({ workspace = " + target.workspace.id + " })")
       else
         Hyprland.dispatch("workspace " + target.workspace.id)
-      // Activating during the workspace switch loses the request, so let the
-      // compositor finish first.
+      // Activating during the workspace switch loses the request. Poll the
+      // compositor state as a fallback in case no focus-change signal arrives.
+      activationDelay.attemptsRemaining = 80
       activationDelay.restart()
     } else {
       activatePendingWindow()
@@ -144,16 +147,41 @@ Item {
   function activatePendingWindow() {
     var target = pendingActivation
     pendingActivation = null
+    pendingWorkspaceId = -1
+    activationDelay.stop()
     if (target && target.wayland) target.wayland.activate()
   }
 
-  // Long enough for Hyprland to complete a workspace switch, short enough to
-  // read as instant.
+  function activateWhenWorkspaceReady() {
+    if (!pendingActivation) {
+      activationDelay.stop()
+      return
+    }
+    var focused = Hyprland.focusedWorkspace
+    if (pendingWorkspaceId < 0 || (focused && focused.id === pendingWorkspaceId)) {
+      activatePendingWindow()
+      return
+    }
+    activationDelay.attemptsRemaining--
+    if (activationDelay.attemptsRemaining <= 0) {
+      activationDelay.stop()
+      pendingActivation = null
+      pendingWorkspaceId = -1
+    }
+  }
+
+  Connections {
+    target: Hyprland
+    function onFocusedWorkspaceChanged() { root.activateWhenWorkspaceReady() }
+  }
+
+  // Bound the wait at two seconds so a failed dispatch cannot leave stale state.
   Timer {
     id: activationDelay
-    interval: 90
-    repeat: false
-    onTriggered: root.activatePendingWindow()
+    property int attemptsRemaining: 0
+    interval: 25
+    repeat: true
+    onTriggered: root.activateWhenWorkspaceReady()
   }
 
   // Spatial selection: pick the tile that lies furthest in direction (dx, dy)
