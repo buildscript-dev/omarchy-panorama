@@ -20,6 +20,7 @@ Item {
   signal done()
 
   implicitHeight: cardColumn.implicitHeight + Style.spacing.panelPadding * 2
+  height: implicitHeight
   focus: true
   Keys.onEscapePressed: root.done()
 
