@@ -4,6 +4,11 @@ Panorama is a native Omarchy window overview for Hyprland. It presents live,
 aspect-correct previews from the current workspace or from every workspace in a
 compact, keyboard-friendly layout.
 
+If you have used macOS Exposé or Mission Control, GNOME's Activities Overview,
+or Windows Task View, Panorama provides the same kind of at-a-glance window
+switching for Omarchy. It is an independent project and is not affiliated with
+Apple, GNOME, or Microsoft.
+
 It follows the active Omarchy theme, highlights the selected window with the
 theme accent colour, dims and blurs every monitor, and switches workspaces when
 you select a window elsewhere.
@@ -119,3 +124,7 @@ Useful API references:
 - [Quickshell HyprlandToplevel](https://master.quickshell.org/docs/types/Quickshell.Hyprland/HyprlandToplevel/)
 - [Quickshell HyprlandWorkspace](https://master.quickshell.org/docs/types/Quickshell.Hyprland/HyprlandWorkspace/)
 - [Quickshell ScreencopyView](https://master.quickshell.org/docs/types/Quickshell.Wayland/ScreencopyView/)
+
+Exposé and Mission Control are trademarks of Apple Inc. Windows is a trademark
+of Microsoft Corporation. Other names may be trademarks of their respective
+owners.
