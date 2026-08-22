@@ -249,6 +249,16 @@ Item {
     var total = items ? items.length : 0
     if (total === 0) return []
 
+    // Each row needs a 34px label strip in addition to its preview. Increase
+    // the column count when necessary so those fixed strips and the gaps fit.
+    var maxRows = Math.max(1, Math.floor((areaHeight + gap) / (34 + gap)))
+    columns = Math.max(columns, Math.ceil(total / maxRows))
+    var rows = Math.max(1, Math.ceil(total / columns))
+    // At extreme counts, shrink spacing before it alone exceeds either axis.
+    var horizontalGap = columns > 1 ? areaWidth / (columns - 1) : gap
+    var verticalGap = rows > 1 ? Math.max(0, areaHeight - rows * 34) / (rows - 1) : gap
+    var layoutGap = Math.max(0, Math.min(gap, horizontalGap, verticalGap))
+
     var geometries = []
     var areas = []
     for (var i = 0; i < total; ++i) {
@@ -268,8 +278,7 @@ Item {
       weights.push(Math.max(0.68, Math.min(1.38, weight)))
     }
 
-    var rows = Math.max(1, Math.ceil(total / columns))
-    var rowSlotHeight = (areaHeight - gap * (rows - 1)) / rows
+    var rowSlotHeight = (areaHeight - layoutGap * (rows - 1)) / rows
     var result = []
     var index = 0
     for (var row = 0; row < rows; ++row) {
@@ -289,16 +298,15 @@ Item {
         maxWeight = Math.max(maxWeight, weights[itemIndex])
       }
       // The unweighted preview height for this row: whichever of the row's
-      // height budget and its total width budget binds first, floored so tiles
-      // stay legible when a row is crowded.
-      var baseHeight = Math.min(
+      // height budget and its total width budget binds first. Do not impose a
+      // minimum here: it would override the fit constraint on crowded outputs.
+      var baseHeight = Math.max(0, Math.min(
         (rowSlotHeight - 34) / Math.max(0.1, maxWeight),
-        (areaWidth - gap * (rowCount - 1)) / Math.max(0.1, weightedAspectSum)
-      )
-      baseHeight = Math.max(82, baseHeight)
+        (areaWidth - layoutGap * (rowCount - 1)) / Math.max(0.1, weightedAspectSum)
+      ))
 
       // Measure the row so it can be centred horizontally.
-      var rowWidth = gap * (rowCount - 1)
+      var rowWidth = layoutGap * (rowCount - 1)
       for (var b = 0; b < rowCount; ++b) {
         var widthIndex = index + b
         rowWidth += baseHeight * weights[widthIndex]
@@ -310,9 +318,9 @@ Item {
         var current = geometries[currentIndex]
         var previewHeight = baseHeight * weights[currentIndex]
         var tileWidth = previewHeight * current.width / current.height
-        var y = row * (rowSlotHeight + gap) + (rowSlotHeight - previewHeight - 34) / 2
+        var y = row * (rowSlotHeight + layoutGap) + (rowSlotHeight - previewHeight - 34) / 2
         result.push({ x: x, y: y, width: tileWidth, height: previewHeight + 34 })
-        x += tileWidth + gap
+        x += tileWidth + layoutGap
       }
       index += rowCount
     }
