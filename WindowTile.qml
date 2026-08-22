@@ -1,3 +1,16 @@
+// One window in the overview: a live preview above an icon-and-title label.
+//
+// The tile is positioned and sized by Overlay.qml's layout, so it never picks
+// its own place on screen. Within the box it is given it centres a preview at
+// the window's true aspect ratio and reserves a fixed 34px strip underneath
+// for the label — the same 34 the layout functions subtract.
+//
+// Capture is best-effort: if the compositor gives no handle for a client, the
+// preview stays empty and the app id plus "Preview unavailable" is shown
+// instead, so the window is still selectable.
+//
+// Selection is presented, not owned: the tile reports hover and clicks through
+// signals and renders whatever `selected` it is handed back.
 import Quickshell
 import Quickshell.Wayland
 import QtQuick
@@ -6,12 +19,21 @@ import qs.Commons
 Item {
   id: root
 
+  // The Hyprland toplevel this tile represents.
   required property var toplevel
+  // Set by the overlay; drives the accent outline and the slight scale-up.
   property bool selected: false
+  // False while closing, which stops the live capture from running on a
+  // surface nobody can see.
   property bool overlayOpen: false
+  // In all-workspaces scope the label is prefixed with the workspace name.
   property bool showWorkspace: false
+  // Omarchy's app library, when the host provided one; used for icon lookup.
   property var appLibrary: null
+
+  // Emitted on click: asks the overlay to activate this window.
   signal chosen()
+  // Emitted on hover: asks the overlay to move the selection here.
   signal hovered()
 
   readonly property var ipc: toplevel && toplevel.lastIpcObject ? toplevel.lastIpcObject : ({})
@@ -24,6 +46,9 @@ Item {
     if (!showWorkspace || !toplevel.workspace) return title
     return "Workspace " + toplevel.workspace.name + "  ·  " + title
   }
+  // Prefer the real captured frame's shape, fall back to what Hyprland
+  // reported, then to a plausible landscape ratio for a window that has
+  // neither yet.
   readonly property real sourceAspect: {
     if (preview.hasContent && preview.sourceSize.height > 0)
       return preview.sourceSize.width / preview.sourceSize.height
@@ -31,11 +56,17 @@ Item {
       return reportedSize[0] / reportedSize[1]
     return 1.6
   }
+  // Fit the preview inside the allotted box minus the label strip, keeping
+  // the aspect ratio. The layout already sized the box to suit, so this
+  // normally only absorbs rounding.
   readonly property real availableWidth: Math.max(1, width)
   readonly property real availableHeight: Math.max(1, height - 34)
   readonly property real previewWidth: Math.min(availableWidth, availableHeight * sourceAspect)
   readonly property real previewHeight: previewWidth / sourceAspect
 
+  // Map the Wayland app id to an icon path via the desktop-entry index,
+  // matching on either the entry id or its StartupWMClass. Returns "" when
+  // nothing matches and no themed icon exists, which hides the icon.
   function resolveAppIcon() {
     var wanted = appId.toLowerCase()
     if (!wanted) return ""
@@ -55,6 +86,9 @@ Item {
     return Quickshell.iconPath(appId, true)
   }
 
+  // Preview plus label, centred in the box the layout assigned. The scale-up
+  // is deliberately small: enough to read as a lift, not enough to overlap a
+  // neighbouring tile across the layout gap.
   Item {
     id: content
     width: root.previewWidth
@@ -73,6 +107,10 @@ Item {
       anchors.top: parent.top
       clip: true
 
+      // Backing plate and outline. The theme's focus border is used when
+      // selected, widened to at least 2px so the accent reads at thumbnail
+      // size, and the preview is inset by the same amount so the border is
+      // never painted over.
       Rectangle {
         anchors.fill: parent
         color: Color.background
@@ -81,6 +119,11 @@ Item {
         border.color: root.selected ? Color.accent : Style.normalBorderColor
       }
 
+      // Live capture through Hyprland's toplevel-export protocol. `live` is
+      // gated on the overview being open and a capture handle existing, so no
+      // frames are pulled while the overlay is closed. The cursor is omitted
+      // and the capture is constrained to the drawn size rather than the
+      // window's full resolution.
       ScreencopyView {
         id: preview
         anchors.fill: parent
@@ -91,6 +134,9 @@ Item {
         constraintSize: Qt.size(frame.width, frame.height)
       }
 
+      // Fallback for clients that expose no capture handle. Shown until the
+      // first frame arrives, so it also covers the moment before capture
+      // starts.
       Column {
         visible: !preview.hasContent
         anchors.centerIn: parent
@@ -117,6 +163,9 @@ Item {
       }
     }
 
+    // Label strip: optional app icon plus the title, sized to its content and
+    // centred, so the title elides from the middle rather than pushing the
+    // icon off the tile.
     Row {
       id: labelRow
       width: Math.min(parent.width, (appIcon.visible ? appIcon.width + spacing : 0) + titleLabel.implicitWidth)
@@ -128,6 +177,8 @@ Item {
 
       Image {
         id: appIcon
+        // Icon lookups can resolve to a path that fails to load; collapse the
+        // icon to zero width in that case so the title stays centred.
         visible: root.appIconSource.length > 0 && status !== Image.Error
         width: visible ? Style.font.iconLarge : 0
         height: width
@@ -153,6 +204,8 @@ Item {
       }
     }
 
+    // Covers the preview and the label. Hover only moves the selection; the
+    // overlay decides what that means.
     MouseArea {
       anchors.fill: parent
       hoverEnabled: true
