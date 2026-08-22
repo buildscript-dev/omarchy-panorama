@@ -2,8 +2,8 @@
 //
 // The tile is positioned and sized by Overlay.qml's layout, so it never picks
 // its own place on screen. Within the box it is given it centres a preview at
-// the window's true aspect ratio and reserves a fixed 34px strip underneath
-// for the label — the same 34 the layout functions subtract.
+// the window's true aspect ratio and reserves a theme-sized strip underneath
+// for the label — the same height the layout function subtracts.
 //
 // Capture is best-effort: if the compositor gives no handle for a client, the
 // preview stays empty and the app id plus "Preview unavailable" is shown
@@ -30,6 +30,8 @@ Item {
   property bool showWorkspace: false
   // Omarchy's app library, when the host provided one; used for icon lookup.
   property var appLibrary: null
+  // Measured by the overlay from the active theme's title font and icon size.
+  required property real labelHeight
 
   // Emitted on click: asks the overlay to activate this window.
   signal chosen()
@@ -60,7 +62,7 @@ Item {
   // the aspect ratio. The layout already sized the box to suit, so this
   // normally only absorbs rounding.
   readonly property real availableWidth: Math.max(1, width)
-  readonly property real availableHeight: Math.max(1, height - 34)
+  readonly property real availableHeight: Math.max(1, height - labelHeight)
   readonly property real previewWidth: Math.min(availableWidth, availableHeight * sourceAspect)
   readonly property real previewHeight: previewWidth / sourceAspect
 
@@ -92,7 +94,7 @@ Item {
   Item {
     id: content
     width: root.previewWidth
-    height: root.previewHeight + 34
+    height: root.previewHeight + root.labelHeight
     anchors.centerIn: parent
     scale: root.selected ? 1.025 : 1
 

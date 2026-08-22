@@ -54,23 +54,24 @@ blur rule below are optional steps you apply yourself.
 Add the following to `~/.config/hypr/bindings.lua`:
 
 ```lua
-o.bind("CTRL + UP", "Panorama all workspaces", "omarchy-shell shell toggle io.github.aastrand.panorama all")
-o.bind("CTRL + DOWN", "Panorama current workspace", "omarchy-shell shell toggle io.github.aastrand.panorama current")
+o.bind("CTRL + UP", "Panorama all workspaces", "omarchy-shell shell summon io.github.aastrand.panorama all")
+o.bind("CTRL + DOWN", "Panorama current workspace", "omarchy-shell shell summon io.github.aastrand.panorama current")
 ```
 
 - `Ctrl+Up` shows windows from every workspace.
 - `Ctrl+Down` shows windows from the current workspace.
 
-You can also open either view directly:
+You can also open or switch either view directly:
 
 ```bash
 omarchy-shell shell summon io.github.aastrand.panorama all
 omarchy-shell shell summon io.github.aastrand.panorama current
 ```
 
-`toggle` closes Panorama if it is already open; `summon` always opens it. The
-final argument is the scope, and anything other than `all` is treated as the
-current workspace.
+`summon` opens Panorama or switches its scope immediately; use `Esc` to close.
+If you prefer a second key press to close the overview, replace `summon` with
+`toggle`, but changing scope then requires closing it first. The final argument
+is the scope, and anything other than `all` is treated as the current workspace.
 
 ## Background blur
 

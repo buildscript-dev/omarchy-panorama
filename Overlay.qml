@@ -65,6 +65,13 @@ Item {
     ? Hyprland.toplevels.values
     : (workspace ? workspace.toplevels.values : [])
   readonly property int count: windows ? windows.length : 0
+  readonly property real tileLabelHeight: 9 + Math.max(Style.font.iconLarge, titleFontMetrics.height)
+
+  FontMetrics {
+    id: titleFontMetrics
+    font.family: Style.font.family
+    font.pixelSize: Style.font.title
+  }
 
   // Windows can close while the overview is up, so keep the selection inside
   // the model rather than letting it dangle past the end.
@@ -190,7 +197,7 @@ Item {
     onTriggered: root.activateWhenWorkspaceReady()
   }
 
-  // Spatial selection: pick the tile that lies furthest in direction (dx, dy)
+  // Spatial selection: pick the nearest tile ahead in direction (dx, dy)
   // while staying closest to that axis, so arrow keys follow what the eye
   // sees rather than model order. Operates on laid-out rectangles, which is
   // why the caller passes its computed `layout` in.
@@ -244,19 +251,20 @@ Item {
   // bigger windows claim more room without squeezing the rest out.
   //
   // Returns one { x, y, width, height } per item, positioned inside a
-  // (areaWidth x areaHeight) box; `height` includes the 34px label strip.
+  // (areaWidth x areaHeight) box; `height` includes the theme-sized label strip.
   function balancedLayout(items, areaWidth, areaHeight, gap, columns) {
     var total = items ? items.length : 0
     if (total === 0) return []
 
-    // Each row needs a 34px label strip in addition to its preview. Increase
-    // the column count when necessary so those fixed strips and the gaps fit.
-    var maxRows = Math.max(1, Math.floor((areaHeight + gap) / (34 + gap)))
+    // Each row needs its label strip in addition to its preview. Increase the
+    // column count when necessary so those strips and the gaps fit.
+    var labelHeight = root.tileLabelHeight
+    var maxRows = Math.max(1, Math.floor((areaHeight + gap) / (labelHeight + gap)))
     columns = Math.max(columns, Math.ceil(total / maxRows))
     var rows = Math.max(1, Math.ceil(total / columns))
     // At extreme counts, shrink spacing before it alone exceeds either axis.
     var horizontalGap = columns > 1 ? areaWidth / (columns - 1) : gap
-    var verticalGap = rows > 1 ? Math.max(0, areaHeight - rows * 34) / (rows - 1) : gap
+    var verticalGap = rows > 1 ? Math.max(0, areaHeight - rows * labelHeight) / (rows - 1) : gap
     var layoutGap = Math.max(0, Math.min(gap, horizontalGap, verticalGap))
 
     var geometries = []
@@ -301,7 +309,7 @@ Item {
       // height budget and its total width budget binds first. Do not impose a
       // minimum here: it would override the fit constraint on crowded outputs.
       var baseHeight = Math.max(0, Math.min(
-        (rowSlotHeight - 34) / Math.max(0.1, maxWeight),
+        (rowSlotHeight - labelHeight) / Math.max(0.1, maxWeight),
         (areaWidth - layoutGap * (rowCount - 1)) / Math.max(0.1, weightedAspectSum)
       ))
 
@@ -318,8 +326,8 @@ Item {
         var current = geometries[currentIndex]
         var previewHeight = baseHeight * weights[currentIndex]
         var tileWidth = previewHeight * current.width / current.height
-        var y = row * (rowSlotHeight + layoutGap) + (rowSlotHeight - previewHeight - 34) / 2
-        result.push({ x: x, y: y, width: tileWidth, height: previewHeight + 34 })
+        var y = row * (rowSlotHeight + layoutGap) + (rowSlotHeight - previewHeight - labelHeight) / 2
+        result.push({ x: x, y: y, width: tileWidth, height: previewHeight + labelHeight })
         x += tileWidth + layoutGap
       }
       index += rowCount
@@ -459,6 +467,7 @@ Item {
             overlayOpen: root.opened
             showWorkspace: root.allWorkspaces
             appLibrary: root.shell && root.shell.appLibrary ? root.shell.appLibrary : null
+            labelHeight: root.tileLabelHeight
             onHovered: root.selectedIndex = index
             onChosen: root.focusWindow(index)
           }
