@@ -34,18 +34,16 @@ Current Omarchy installations provide these components.
 
 ## Installation
 
-Clone the repository into the user plugin directory, then validate and enable
-it:
+Install and enable Panorama with Omarchy's plugin manager:
 
 ```bash
-git clone https://github.com/aastrand/omarchy-panorama.git \
-  ~/.config/omarchy/plugins/io.github.aastrand.panorama
-omarchy plugin validate ~/.config/omarchy/plugins/io.github.aastrand.panorama
-omarchy plugin enable io.github.aastrand.panorama
+omarchy plugin add https://github.com/aastrand/omarchy-panorama.git --enable
 ```
 
-Until the upstream repository exists, copy this folder to the same destination
-instead.
+Omarchy displays its unsandboxed-plugin warning, clones the repository,
+validates the manifest, and enables the overlay. Panorama does not modify your
+Hyprland configuration; the optional keybindings and blur rule below are manual
+configuration steps.
 
 ## Keybindings
 
@@ -118,12 +116,33 @@ An installed plugin normally reloads automatically. To force rediscovery, run:
 omarchy-shell shell rescanPlugins
 ```
 
+## Removal
+
+Remove the plugin through Omarchy:
+
+```bash
+omarchy plugin remove io.github.aastrand.panorama
+```
+
+If you added the optional integration, also remove the two Panorama entries
+from `~/.config/hypr/bindings.lua` and the `panorama-background-blur` layer rule
+from `~/.config/hypr/hyprland.lua`. Then reload Hyprland:
+
+```bash
+hyprctl reload
+hyprctl configerrors
+```
+
 Useful API references:
 
 - [Omarchy shell plugins](https://github.com/basecamp/omarchy/blob/quattro/docs/omarchy-shell.md)
 - [Quickshell HyprlandToplevel](https://master.quickshell.org/docs/types/Quickshell.Hyprland/HyprlandToplevel/)
 - [Quickshell HyprlandWorkspace](https://master.quickshell.org/docs/types/Quickshell.Hyprland/HyprlandWorkspace/)
 - [Quickshell ScreencopyView](https://master.quickshell.org/docs/types/Quickshell.Wayland/ScreencopyView/)
+
+## License
+
+Panorama is available under the [MIT License](LICENSE).
 
 Exposé and Mission Control are trademarks of Apple Inc. Windows is a trademark
 of Microsoft Corporation. Other names may be trademarks of their respective
