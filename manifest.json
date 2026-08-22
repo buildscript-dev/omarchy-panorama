@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.aastrand.panorama",
+  "name": "Panorama",
+  "version": "0.1.0",
+  "author": "Anders Åstrand",
+  "description": "A theme-aware window overview for the current workspace or every workspace.",
+  "kinds": ["overlay"],
+  "entryPoints": {
+    "overlay": "Overlay.qml"
+  }
+}
