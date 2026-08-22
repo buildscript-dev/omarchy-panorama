@@ -42,6 +42,7 @@ Item {
 
   // Part of the host contract: the shell reads `opened` to implement toggle.
   property bool opened: false
+  property bool settingsOpen: false
   // Scope chosen by the payload: every workspace, or just the focused one.
   property bool allWorkspaces: false
   // Index into `windows` of the highlighted tile.
@@ -49,23 +50,52 @@ Item {
   // Window awaiting activation across a workspace switch; see focusWindow().
   property var pendingActivation: null
   property int pendingWorkspaceId: -1
-  readonly property var workspace: Hyprland.focusedWorkspace
-  // The monitor that shows the thumbnails and takes keyboard focus: the one
-  // Hyprland reports as focused, matched to a Quickshell screen by name.
-  // Falls back to the first screen so the overview is never invisible.
+  // Snapshot where the request came from before an overlay on another output
+  // can affect compositor focus. "Current workspace" always means this one.
+  property var sourceWorkspace: null
+  property string invocationScreenName: ""
+  property string targetScreenName: ""
+
+  // Persisted inline on this plugin's entry in Omarchy's shell.json.
+  property var preferences: ({
+    overviewScreen: "focused",
+    overviewOutput: "",
+    dimLevel: "normal",
+    windowLabels: "icon-title"
+  })
+
+  // The monitor that shows the thumbnails and takes keyboard focus. It is
+  // resolved once at open from the payload, with the invocation
+  // screen as a safe fallback when an output is disconnected.
   readonly property var targetScreen: {
     var screens = Quickshell.screens || []
-    var monitor = Hyprland.focusedMonitor
     for (var i = 0; i < screens.length; ++i) {
-      if (monitor && screens[i].name === monitor.name) return screens[i]
+      if (screens[i].name === targetScreenName) return screens[i]
+    }
+    for (var j = 0; j < screens.length; ++j) {
+      if (screens[j].name === invocationScreenName) return screens[j]
     }
     return screens.length > 0 ? screens[0] : null
   }
   readonly property var windows: allWorkspaces
     ? Hyprland.toplevels.values
-    : (workspace ? workspace.toplevels.values : [])
+    : (sourceWorkspace ? sourceWorkspace.toplevels.values : [])
   readonly property int count: windows ? windows.length : 0
-  readonly property real tileLabelHeight: 9 + Math.max(Style.font.iconLarge, titleFontMetrics.height)
+  readonly property real tileLabelHeight: preferences.windowLabels === "hidden"
+    ? 0 : 9 + Math.max(Style.font.iconLarge, titleFontMetrics.height)
+  readonly property color scrimColor: {
+    var multiplier = preferences.dimLevel === "light" ? 0.6
+      : (preferences.dimLevel === "dark" ? 1.45 : 1.0)
+    return Qt.rgba(Color.menu.scrim.r, Color.menu.scrim.g, Color.menu.scrim.b,
+      Math.min(0.92, Color.menu.scrim.a * multiplier))
+  }
+  readonly property var screenOptions: {
+    var out = []
+    var screens = Quickshell.screens || []
+    for (var i = 0; i < screens.length; ++i)
+      out.push({ value: String(screens[i].name), label: String(screens[i].name) })
+    return out
+  }
 
   FontMetrics {
     id: titleFontMetrics
@@ -80,17 +110,80 @@ Item {
     else selectedIndex = Math.max(0, Math.min(selectedIndex, count - 1))
   }
 
+  function oneOf(value, allowed, fallback) {
+    value = String(value || "")
+    return allowed.indexOf(value) >= 0 ? value : fallback
+  }
+
+  function pluginEntry() {
+    var entries = shell && shell.shellConfig && Array.isArray(shell.shellConfig.plugins)
+      ? shell.shellConfig.plugins : []
+    var pluginId = manifest && manifest.id ? String(manifest.id) : ""
+    for (var i = 0; i < entries.length; ++i) {
+      if (entries[i] && String(entries[i].id || "") === pluginId) return entries[i]
+    }
+    return ({})
+  }
+
+  function loadPreferences() {
+    var entry = pluginEntry()
+    preferences = {
+      overviewScreen: oneOf(entry.overviewScreen, ["focused", "output"], "focused"),
+      overviewOutput: String(entry.overviewOutput || ""),
+      dimLevel: oneOf(entry.dimLevel, ["light", "normal", "dark"], "normal"),
+      windowLabels: oneOf(entry.windowLabels,
+        ["icon-title", "title", "hidden"], "icon-title")
+    }
+  }
+
+  function savePreference(name, value) {
+    var next = Object.assign({}, preferences)
+    next[name] = value
+    preferences = next
+
+    if (!shell || typeof shell.updateEntryInline !== "function"
+        || !manifest || !manifest.id) return
+    var entry = pluginEntry()
+    var persisted = ({})
+    for (var key in entry) if (key !== "id") persisted[key] = entry[key]
+    persisted[name] = value
+    shell.updateEntryInline(manifest.id, persisted)
+  }
+
+  function resolveTargetScreenName(selection) {
+    selection = String(selection || preferences.overviewScreen || "focused")
+    if (selection === "focused") return invocationScreenName
+    if (selection === "output")
+      return String(preferences.overviewOutput || invocationScreenName)
+    // A normal overview payload may temporarily name an output directly.
+    return selection
+  }
+
+  function refreshTargetScreen() {
+    targetScreenName = resolveTargetScreenName(preferences.overviewScreen)
+  }
+
   // Host entry point. Called once per summon, before this instance has ever
   // been shown. The payload is accepted in either form the CLI can produce:
   // a JSON object with a `scope` key, or a bare scope word.
   function open(payloadJson) {
     var rawPayload = String(payloadJson || "")
     var scope = rawPayload
+    var view = "overview"
+    var screenSelection = ""
     try {
       var payload = JSON.parse(rawPayload || "{}")
       scope = String(payload.scope || "")
+      view = String(payload.view || "overview")
+      screenSelection = String(payload.screen || "")
     } catch (e) {}
+    loadPreferences()
+    sourceWorkspace = Hyprland.focusedWorkspace
+    invocationScreenName = Hyprland.focusedMonitor
+      ? String(Hyprland.focusedMonitor.name || "") : ""
+    targetScreenName = resolveTargetScreenName(screenSelection)
     allWorkspaces = scope === "all"
+    settingsOpen = view === "settings"
     // The cached toplevel list can be stale after windows opened or closed
     // since the last shell interaction, and it feeds both layout and count.
     Hyprland.refreshToplevels()
@@ -107,7 +200,8 @@ Item {
           break
         }
       }
-      keyArea.forceActiveFocus()
+      if (root.settingsOpen) settingsCard.forceActiveFocus()
+      else keyArea.forceActiveFocus()
     })
   }
 
@@ -358,7 +452,7 @@ Item {
 
       Rectangle {
         anchors.fill: parent
-        color: Color.menu.scrim
+        color: root.scrimColor
       }
 
       MouseArea {
@@ -384,7 +478,7 @@ Item {
 
     Rectangle {
       anchors.fill: parent
-      color: Color.menu.scrim
+      color: root.scrimColor
     }
 
     MouseArea {
@@ -397,6 +491,7 @@ Item {
       id: keyArea
       anchors.fill: parent
       focus: true
+      visible: !root.settingsOpen
 
       // Layout inputs. 46 reserves room for the hint line at the bottom, and
       // `columns` picks a grid roughly matching the screen's aspect ratio so
@@ -468,6 +563,7 @@ Item {
             showWorkspace: root.allWorkspaces
             appLibrary: root.shell && root.shell.appLibrary ? root.shell.appLibrary : null
             labelHeight: root.tileLabelHeight
+            labelMode: root.preferences.windowLabels
             onHovered: root.selectedIndex = index
             onChosen: root.focusWindow(index)
           }
@@ -486,6 +582,31 @@ Item {
         font.family: Style.font.family
         font.pixelSize: Style.font.subtitle
       }
+
+    }
+
+    SettingsCard {
+      id: settingsCard
+      visible: root.settingsOpen
+      anchors.centerIn: parent
+      width: Math.min(560, Math.max(320, panel.width - 48))
+      screenMode: root.preferences.overviewScreen
+      screenOutput: root.preferences.overviewOutput
+      dimLevel: root.preferences.dimLevel
+      labelMode: root.preferences.windowLabels
+      outputOptions: root.screenOptions
+
+      onScreenModeChosen: function(value) {
+        root.savePreference("overviewScreen", value)
+        root.refreshTargetScreen()
+      }
+      onScreenOutputChosen: function(value) {
+        root.savePreference("overviewOutput", value)
+        root.refreshTargetScreen()
+      }
+      onDimLevelChosen: function(value) { root.savePreference("dimLevel", value) }
+      onLabelModeChosen: function(value) { root.savePreference("windowLabels", value) }
+      onDone: root.dismiss()
     }
   }
 }

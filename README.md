@@ -22,6 +22,7 @@ workspaces when you select a window elsewhere.
 - Size-aware layout that gives larger windows more room
 - Mouse and spatial keyboard navigation
 - Application icons and workspace-aware labels
+- Configurable overview display, dimming, and window labels
 - Theme-derived colours, typography, spacing, and selection outline
 - Dimming across every monitor, with optional background blur
 - Direct activation of windows on other workspaces
@@ -73,6 +74,42 @@ If you prefer a second key press to close the overview, replace `summon` with
 `toggle`, but changing scope then requires closing it first. The final argument
 is the scope, and anything other than `all` is treated as the current workspace.
 
+## Settings
+
+![Panorama settings](settings.png)
+
+Panorama keeps configuration out of the window overview itself. Open its
+dedicated settings view from a terminal:
+
+```bash
+omarchy-shell shell summon io.github.aastrand.panorama '{"view":"settings"}'
+```
+
+You can bind that command in `~/.config/hypr/bindings.lua` if you expect to
+change settings frequently:
+
+```lua
+o.bind("CTRL + SHIFT + DOWN", "Panorama settings", "omarchy-shell shell summon io.github.aastrand.panorama '{\"view\":\"settings\"}'")
+```
+
+The settings view provides:
+
+- **Overview display:** follow the focused display or use a specific connected
+  output such as `DP-1`. If the selected output is disconnected, Panorama
+  falls back to the display where it was invoked.
+- **Background dimming:** light, normal, or dark. This controls Panorama's
+  translucent scrim; compositor blur remains the separate, optional Hyprland
+  integration described below.
+- **Window labels:** icon and title, title only, or hidden. The application and
+  “Preview unavailable” fallback inside an uncapturable window remains visible
+  even when the label beneath previews is hidden.
+
+Changes are applied and saved immediately as inline fields on Panorama's entry
+in `~/.config/omarchy/shell.json`, which is Omarchy's standard storage model
+for non-bar plugins. Panorama creates no separate settings or state file. The
+current-workspace view always uses the workspace where Panorama was invoked,
+even if the overview is configured to appear on another display.
+
 ## Background blur
 
 Add this layer rule to `~/.config/hypr/hyprland.lua`. Panorama dims every
@@ -114,8 +151,8 @@ keeps the window selectable using its application ID and title. It does not
 write screenshots or preview caches to disk, and it reads no data beyond what
 the compositor already reports about your own windows.
 
-Thumbnails are drawn on the focused monitor only. Other monitors receive a
-dimming layer so the overview reads as a desktop-wide mode.
+Thumbnails are drawn on the configured overview display. Other monitors
+receive a dimming layer so the overview reads as a desktop-wide mode.
 
 ## Source overview
 
@@ -123,11 +160,14 @@ dimming layer so the overview reads as a desktop-wide mode.
 | --- | --- |
 | `manifest.json` | Plugin metadata and the `overlay` entry point |
 | `Overlay.qml` | Entry point: shell contract, window model, layout, keyboard handling, panel surfaces |
+| `SettingsCard.qml` | Dedicated settings UI for display, dimming, and window labels |
 | `WindowTile.qml` | One thumbnail: live capture, fallback text, icon and title label, hit testing |
 | `preview.png` | Screenshot used in this README |
+| `settings.png` | Settings-view screenshot used in this README |
 
-Both QML files carry inline documentation covering the `omarchy-shell` plugin
-contract, the layout algorithm, and the theme tokens they read.
+The QML files carry inline documentation covering the `omarchy-shell` plugin
+contract, settings persistence, the layout algorithm, and the theme tokens
+they read.
 
 ## Development
 

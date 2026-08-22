@@ -32,6 +32,8 @@ Item {
   property var appLibrary: null
   // Measured by the overlay from the active theme's title font and icon size.
   required property real labelHeight
+  // icon-title, title, or hidden; the fallback inside the preview is unaffected.
+  property string labelMode: "icon-title"
 
   // Emitted on click: asks the overlay to activate this window.
   signal chosen()
@@ -171,6 +173,7 @@ Item {
     // icon off the tile.
     Row {
       id: labelRow
+      visible: root.labelMode !== "hidden"
       width: Math.min(parent.width, (appIcon.visible ? appIcon.width + spacing : 0) + titleLabel.implicitWidth)
       height: Math.max(appIcon.visible ? appIcon.height : 0, titleLabel.implicitHeight)
       anchors.horizontalCenter: parent.horizontalCenter
@@ -182,7 +185,8 @@ Item {
         id: appIcon
         // Icon lookups can resolve to a path that fails to load; collapse the
         // icon to zero width in that case so the title stays centred.
-        visible: root.appIconSource.length > 0 && status !== Image.Error
+        visible: root.labelMode === "icon-title"
+          && root.appIconSource.length > 0 && status !== Image.Error
         width: visible ? Style.font.iconLarge : 0
         height: width
         anchors.verticalCenter: parent.verticalCenter
