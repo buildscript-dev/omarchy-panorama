@@ -112,8 +112,11 @@ Item {
   }
 
   // Internal close, used by Esc, background clicks, and window activation.
-  function dismiss() {
+  function dismiss(unloadFromHost) {
     opened = false
+    if (unloadFromHost !== false && shell && typeof shell.hide === "function"
+        && manifest && manifest.id)
+      shell.hide(manifest.id)
   }
 
   // Activate the window at `index`, switching workspaces first when it lives
@@ -124,7 +127,8 @@ Item {
     var target = windows[index]
     pendingActivation = target
     pendingWorkspaceId = target.workspace ? target.workspace.id : -1
-    dismiss()
+    // Keep the component alive until the pending activation has completed.
+    dismiss(false)
     if (target.workspace && (!Hyprland.focusedWorkspace
         || target.workspace.id !== Hyprland.focusedWorkspace.id)) {
       // Omarchy 4 configures Hyprland in Lua; fall back to the classic
@@ -150,6 +154,7 @@ Item {
     pendingWorkspaceId = -1
     activationDelay.stop()
     if (target && target.wayland) target.wayland.activate()
+    dismiss()
   }
 
   function activateWhenWorkspaceReady() {
@@ -167,6 +172,7 @@ Item {
       activationDelay.stop()
       pendingActivation = null
       pendingWorkspaceId = -1
+      dismiss()
     }
   }
 
