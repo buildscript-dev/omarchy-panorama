@@ -150,6 +150,7 @@ Item {
           horizontalAlignment: Text.AlignHCenter
           elide: Text.ElideRight
           text: root.toplevel && root.toplevel.wayland ? root.toplevel.wayland.appId : "Window"
+          textFormat: Text.PlainText
           color: Color.foreground
           font.family: Style.font.family
           font.pixelSize: Style.font.heading
@@ -200,6 +201,7 @@ Item {
         elide: Text.ElideMiddle
         horizontalAlignment: Text.AlignHCenter
         text: root.displayTitle
+        textFormat: Text.PlainText
         color: root.selected ? Color.accent : Color.foreground
         font.family: Style.font.family
         font.pixelSize: Style.font.title
