@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "io.github.aastrand.panorama",
   "name": "Panorama",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Anders Åstrand",
   "description": "An Exposé-style, theme-aware window overview for the current workspace or all workspaces.",
   "kinds": ["overlay"],

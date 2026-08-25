@@ -77,9 +77,22 @@ Item {
     }
     return screens.length > 0 ? screens[0] : null
   }
-  readonly property var windows: allWorkspaces
-    ? Hyprland.toplevels.values
-    : (sourceWorkspace ? sourceWorkspace.toplevels.values : [])
+  // Quickshell's global toplevel model can also contain foreign handles for
+  // unmapped application helpers (for example tray and background windows).
+  // They have no live Hyprland client to activate or export, so keep only
+  // mapped clients with a workspace. This also prevents their placeholder
+  // geometry and failed capture from appearing in the all-workspaces view.
+  readonly property var windows: {
+    var candidates = allWorkspaces
+      ? Hyprland.toplevels.values
+      : (sourceWorkspace ? sourceWorkspace.toplevels.values : [])
+    if (!candidates) return []
+    return candidates.filter(function(toplevel) {
+      if (!toplevel || !toplevel.workspace) return false
+      var ipc = toplevel.lastIpcObject || ({})
+      return ipc.mapped === true
+    })
+  }
   readonly property int count: windows ? windows.length : 0
   readonly property real tileLabelHeight: preferences.windowLabels === "hidden"
     ? 0 : 9 + Math.max(Style.font.iconLarge, titleFontMetrics.height)

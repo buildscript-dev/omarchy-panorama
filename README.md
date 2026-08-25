@@ -19,6 +19,7 @@ workspaces when you select a window elsewhere.
 
 - Current-workspace and all-workspaces views
 - Live window previews that preserve their real proportions
+- Hidden application helper and tray windows are excluded
 - Size-aware layout that gives larger windows more room
 - Mouse and spatial keyboard navigation
 - Application icons and workspace-aware labels
