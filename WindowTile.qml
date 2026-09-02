@@ -54,10 +54,10 @@ Item {
   // reported, then to a plausible landscape ratio for a window that has
   // neither yet.
   readonly property real sourceAspect: {
-    if (preview.hasContent && preview.sourceSize.height > 0)
-      return preview.sourceSize.width / preview.sourceSize.height
     if (reportedSize && reportedSize.length >= 2 && reportedSize[1] > 0)
       return reportedSize[0] / reportedSize[1]
+    if (preview.hasContent && preview.sourceSize.height > 0)
+      return preview.sourceSize.width / preview.sourceSize.height
     return 1.6
   }
   // Fit the preview inside the allotted box minus the label strip, keeping

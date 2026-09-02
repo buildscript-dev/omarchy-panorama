@@ -11,12 +11,14 @@ Item {
   property string screenOutput: ""
   property string dimLevel: "normal"
   property string labelMode: "icon-title"
+  property bool motionEnabled: true
   property var outputOptions: []
 
   signal screenModeChosen(string value)
   signal screenOutputChosen(string value)
   signal dimLevelChosen(string value)
   signal labelModeChosen(string value)
+  signal motionEnabledChosen(bool value)
   signal done()
 
   implicitHeight: cardColumn.implicitHeight + Style.spacing.panelPadding * 2
@@ -100,6 +102,14 @@ Item {
           { value: "hidden", label: "Hidden" }
         ]
         onChanged: function(value) { root.labelModeChosen(value) }
+      }
+
+      Toggle {
+        width: parent.width
+        label: "Window motion"
+        description: "Fly previews into place with GloView-style animation"
+        checked: root.motionEnabled
+        onClicked: root.motionEnabledChosen(!root.motionEnabled)
       }
 
       Button {

@@ -55,13 +55,16 @@ Item {
   property var sourceWorkspace: null
   property string invocationScreenName: ""
   property string targetScreenName: ""
+  property real motionProgress: 1
 
   // Persisted inline on this plugin's entry in Omarchy's shell.json.
   property var preferences: ({
     overviewScreen: "focused",
     overviewOutput: "",
     dimLevel: "normal",
-    windowLabels: "icon-title"
+    windowLabels: "icon-title",
+    motionEnabled: true,
+    motionDuration: 360
   })
 
   // The monitor that shows the thumbnails and takes keyboard focus. It is
@@ -145,7 +148,9 @@ Item {
       overviewOutput: String(entry.overviewOutput || ""),
       dimLevel: oneOf(entry.dimLevel, ["light", "normal", "dark"], "normal"),
       windowLabels: oneOf(entry.windowLabels,
-        ["icon-title", "title", "hidden"], "icon-title")
+        ["icon-title", "title", "hidden"], "icon-title"),
+      motionEnabled: entry.motionEnabled === undefined ? true : entry.motionEnabled === true,
+      motionDuration: Math.max(0, Number(entry.motionDuration === undefined ? 360 : entry.motionDuration) || 0)
     }
   }
 
@@ -191,6 +196,7 @@ Item {
       screenSelection = String(payload.screen || "")
     } catch (e) {}
     loadPreferences()
+    Hyprland.refreshMonitors()
     sourceWorkspace = Hyprland.focusedWorkspace
     invocationScreenName = Hyprland.focusedMonitor
       ? String(Hyprland.focusedMonitor.name || "") : ""
@@ -201,6 +207,7 @@ Item {
     // since the last shell interaction, and it feeds both layout and count.
     Hyprland.refreshToplevels()
     selectedIndex = 0
+    motionProgress = preferences.motionEnabled ? 0 : 1
     opened = true
     // Deferred: the toplevel refresh and the Repeater both need to settle
     // before the active window can be located and focus can be taken.
@@ -215,6 +222,7 @@ Item {
       }
       if (root.settingsOpen) settingsCard.forceActiveFocus()
       else keyArea.forceActiveFocus()
+      if (!root.settingsOpen && root.preferences.motionEnabled) entranceDelay.restart()
     })
   }
 
@@ -351,6 +359,52 @@ Item {
       width: width,
       height: height
     }
+  }
+
+  function easeOutMotion(value) {
+    var t = Math.max(0, Math.min(1, value))
+    var inv = 1 - t
+    return 1 - inv * inv * inv
+  }
+
+  function tileMotion(index) {
+    return motionProgress
+  }
+
+  function targetHyprMonitor() {
+    var monitors = Hyprland.monitors && Hyprland.monitors.values ? Hyprland.monitors.values : []
+    for (var i = 0; i < monitors.length; ++i)
+      if (String(monitors[i].name || "") === targetScreenName) return monitors[i]
+    return Hyprland.focusedMonitor
+  }
+
+  function sourcePlacement(window, areaWidth, areaHeight) {
+    var geometry = windowGeometry(window)
+    var monitor = targetHyprMonitor()
+    var x = geometry.x - (monitor ? Number(monitor.x || 0) : 0)
+    var y = geometry.y - (monitor ? Number(monitor.y || 0) : 0)
+    if (x >= areaWidth) x = areaWidth - Math.min(geometry.width, 80)
+    else if (x + geometry.width <= 0) x = -geometry.width + Math.min(geometry.width, 80)
+    if (y >= areaHeight) y = areaHeight - Math.min(geometry.height, 80)
+    else if (y + geometry.height <= 0) y = -geometry.height + Math.min(geometry.height, 80)
+    return { x: x, y: y, width: geometry.width, height: geometry.height }
+  }
+
+  Timer {
+    id: entranceDelay
+    interval: 80
+    repeat: false
+    onTriggered: entranceAnimation.restart()
+  }
+
+  NumberAnimation {
+    id: entranceAnimation
+    target: root
+    property: "motionProgress"
+    from: 0
+    to: 1
+    duration: root.preferences.motionDuration
+    easing.type: Easing.Linear
   }
 
   // The layout the overview uses: a centred grid of rows in model order.
@@ -566,10 +620,17 @@ Item {
             // The layout is recomputed on resize and on model changes; a tile
             // can briefly outlive its entry, so fall back to a harmless box.
             readonly property var placement: keyArea.layout[index] || ({ x: 0, y: 0, width: 1, height: 1 })
-            x: placement.x
-            y: placement.y
+            readonly property var source: root.sourcePlacement(modelData, keyArea.width, keyArea.height)
+            readonly property real motion: root.easeOutMotion(root.tileMotion(index))
+            readonly property real areaX: (keyArea.width - keyArea.usableWidth) / 2
+            readonly property real areaY: (keyArea.height - keyArea.usableHeight) / 2
+            x: (source.x - areaX) + (placement.x - (source.x - areaX)) * motion
+            y: (source.y - areaY) + (placement.y - (source.y - areaY)) * motion
             width: placement.width
             height: placement.height
+            opacity: 0.55 + 0.45 * motion
+            transformOrigin: Item.Center
+            scale: 0.94 + 0.06 * motion
             toplevel: modelData
             selected: index === root.selectedIndex
             overlayOpen: root.opened
@@ -577,7 +638,9 @@ Item {
             appLibrary: root.shell && root.shell.appLibrary ? root.shell.appLibrary : null
             labelHeight: root.tileLabelHeight
             labelMode: root.preferences.windowLabels
-            onHovered: root.selectedIndex = index
+            onHovered: {
+              if (root.motionProgress >= 1) root.selectedIndex = index
+            }
             onChosen: root.focusWindow(index)
           }
         }
@@ -607,6 +670,7 @@ Item {
       screenOutput: root.preferences.overviewOutput
       dimLevel: root.preferences.dimLevel
       labelMode: root.preferences.windowLabels
+      motionEnabled: root.preferences.motionEnabled
       outputOptions: root.screenOptions
 
       onScreenModeChosen: function(value) {
@@ -619,6 +683,7 @@ Item {
       }
       onDimLevelChosen: function(value) { root.savePreference("dimLevel", value) }
       onLabelModeChosen: function(value) { root.savePreference("windowLabels", value) }
+      onMotionEnabledChosen: function(value) { root.savePreference("motionEnabled", value) }
       onDone: root.dismiss()
     }
   }
