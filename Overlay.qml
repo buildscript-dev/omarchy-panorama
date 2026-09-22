@@ -90,10 +90,34 @@ Item {
       ? Hyprland.toplevels.values
       : (sourceWorkspace ? sourceWorkspace.toplevels.values : [])
     if (!candidates) return []
-    return candidates.filter(function(toplevel) {
+    var mapped = candidates.filter(function(toplevel) {
       if (!toplevel || !toplevel.workspace) return false
       var ipc = toplevel.lastIpcObject || ({})
       return ipc.mapped === true
+    })
+    // Upstream lays the grid out in model order, which is Hyprland's toplevel
+    // order (focus history), so tiles bear no relation to where the windows
+    // actually sit -- two side-by-side windows can come out swapped. Sort into
+    // reading order instead: workspace, then rows top-to-bottom, then
+    // left-to-right inside a row.
+    function geom(toplevel) {
+      var ipc = toplevel.lastIpcObject || ({})
+      var at = ipc.at || [0, 0]
+      var size = ipc.size || [0, 0]
+      return {
+        ws: Number((toplevel.workspace && toplevel.workspace.id) || 0),
+        x: Number(at[0]) || 0,
+        y: Number(at[1]) || 0,
+        h: Number(size[1]) || 0
+      }
+    }
+    return mapped.sort(function(a, b) {
+      var ga = geom(a), gb = geom(b)
+      if (ga.ws !== gb.ws) return ga.ws - gb.ws
+      // Windows whose tops are within half a window height count as one row.
+      var rowTolerance = Math.max(40, Math.min(ga.h, gb.h) / 2)
+      if (Math.abs(ga.y - gb.y) > rowTolerance) return ga.y - gb.y
+      return ga.x - gb.x
     })
   }
   readonly property int count: windows ? windows.length : 0
